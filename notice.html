@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notice Board | Dev Bills School</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .notice-list { display: grid; gap: 20px; margin-top: 30px; }
+    .notice-card { background: #fff; border: 1px solid var(--line); border-left: 6px solid var(--blue); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); }
+    .notice-card h3 { margin: 0 0 8px; color: var(--blue-dark); font-family: var(--font-head); font-size: 1.4rem; }
+    .notice-date { font-size: 0.85rem; color: var(--muted); margin-bottom: 16px; display: block; }
+    .notice-text { color: var(--ink); margin-bottom: 20px; line-height: 1.7; }
+    
+    .audio-player { background: var(--blue-soft); padding: 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); margin-bottom: 10px; }
+    .audio-player span { font-weight: 800; font-size: 0.85rem; color: var(--blue-dark); text-transform: uppercase; letter-spacing: 0.05em; width: 80px; }
+    .audio-player audio { width: 100%; height: 40px; outline: none; }
+  </style>
+</head>
+<body style="background: var(--blue-soft);">
+  <header>
+    <div class="container header-inner" style="display:flex; justify-content:space-between; align-items:center; padding: 20px 0;">
+      <a href="index.html" style="font-family: var(--font-head); font-size: 1.5rem; font-weight: 700; color: var(--blue-dark);">← Back to Home</a>
+    </div>
+  </header>
+
+  <main class="section container" style="min-height: 70vh;">
+    <div class="section-heading">
+      <p class="section-kicker">Stay Updated</p>
+      <h2>Audio Notice Board</h2>
+      <p class="section-intro">Listen to the latest announcements from the Headmistress in your preferred language.</p>
+    </div>
+
+    <div id="notices-container" class="notice-list">
+      <p>Loading notices...</p>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://ljrdfqewddbqdztwpmlh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqcmRmcWV3ZGRicWR6dHdwbWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTAwODYsImV4cCI6MjExMDQyNjA4Nn0.jSwbF81BsGPaUzYmdt9XavPUkAvJICGoXkFF58aS4IQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function esc(v = "") { return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
+
+    async function loadNotices() {
+      const container = document.getElementById('notices-container');
+      
+      const { data, error } = await supabase
+        .from('notices')
+        .select(`*, notice_audio (*)`)
+        .order('id', { ascending: false });
+
+      if (error) {
+        console.error('Notices error:', error);
+        container.innerHTML = '<p>Could not load notices: ' + esc(error.message) + '</p>';
+        return;
+      }
+      if (!data || !data.length) {
+        container.innerHTML = '<p>No notices posted yet. Please check back later.</p>';
+        return;
+      }
+
+      container.innerHTML = data.map(notice => {
+        let audioHtml = '';
+        if (notice.notice_audio && notice.notice_audio.length > 0) {
+          audioHtml = notice.notice_audio.map(audio => `
+            <div class="audio-player">
+              <span>${esc(audio.language)}</span>
+              <audio controls src="${esc(audio.audio_url)}"></audio>
+            </div>
+          `).join('');
+        } else {
+          audioHtml = '<p style="font-size:0.85rem; color:var(--muted);">No audio recording available for this notice.</p>';
+        }
+
+        const rawDate = notice.created_at || notice.date_posted;
+        const dateText = rawDate ? new Date(rawDate).toLocaleDateString() : '';
+
+        return `
+          <div class="notice-card">
+            <h3>${esc(notice.title)}</h3>
+            ${dateText ? `<span class="notice-date">Posted: ${dateText}</span>` : ''}
+            <p class="notice-text">${esc(notice.message)}</p>
+            ${audioHtml}
+          </div>
+        `;
+      }).join('');
+    }
+
+    loadNotices();
+  </script>
+</body>
+</html>

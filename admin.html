@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | Dev Bills School</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-container { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    .admin-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 30px; box-shadow: var(--shadow); margin-bottom: 30px; }
+    .admin-card h2 { font-family: var(--font-head); color: var(--blue-dark); margin-bottom: 20px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-weight: 800; margin-bottom: 8px; font-size: 0.9rem; color: var(--ink); }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); }
+    .form-group textarea { min-height: 120px; resize: vertical; }
+    .btn-admin { background: var(--blue); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 800; cursor: pointer; width: 100%; }
+    .btn-admin:hover { background: var(--blue-dark); }
+    .admin-login { display: block; }
+    .admin-panel { display: none; }
+  </style>
+</head>
+<body style="background: var(--blue-soft);">
+  <header>
+    <div class="container header-inner" style="display:flex; justify-content:space-between; align-items:center; padding: 20px 0;">
+      <a href="index.html" style="font-family: var(--font-head); font-size: 1.5rem; font-weight: 700; color: var(--blue-dark);">← View Live Site</a>
+    </div>
+  </header>
+
+  <main class="admin-container">
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="admin-card admin-login">
+      <h2>Admin Login</h2>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="headmistress@school.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="••••••••">
+      </div>
+      <button class="btn-admin" onclick="login()">Sign In</button>
+      <p id="login-error" style="color: var(--blue); margin-top: 10px; font-weight: bold; font-size: 0.9rem;"></p>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="admin-card admin-panel">
+      <h2>Post New Notice</h2>
+      <div class="form-group">
+        <label>Notice Title</label>
+        <input type="text" id="noticeTitle" placeholder="e.g., End of Term Exams">
+      </div>
+      <div class="form-group">
+        <label>Message (Text)</label>
+        <textarea id="noticeMessage" placeholder="Type the details of the notice here..."></textarea>
+      </div>
+      
+      <div class="form-group" style="border-top: 1px solid var(--line); padding-top: 20px;">
+        <label>Upload Audio Recording</label>
+        <select id="audioLanguage" style="margin-bottom: 10px;">
+          <option value="English">English</option>
+          <option value="Twi">Twi</option>
+          <option value="Ga">Ga</option>
+          <option value="Ewe">Ewe</option>
+        </select>
+        <input type="file" id="audioFile" accept="audio/*">
+      </div>
+
+      <button class="btn-admin" id="postBtn" onclick="postNotice()">Post Notice</button>
+      <p id="admin-status" style="margin-top: 10px; font-weight: bold; font-size: 0.9rem; text-align: center;"></p>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // NEW PROJECT KEYS
+    const SUPABASE_URL = 'https://ljrdfqewddbqdztwpmlh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqcmRmcWV3ZGRicWR6dHdwbWxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTAwODYsImV4cCI6MjExMDQyNjA4Nn0.jSwbF81BsGPaUzYmdt9XavPUkAvJICGoXkFF58aS4IQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) showDashboard();
+    });
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('login-error');
+      errorMsg.textContent = 'Logging in...';
+      
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        errorMsg.textContent = error.message;
+      } else {
+        errorMsg.textContent = '';
+        showDashboard();
+      }
+    }
+
+    function showDashboard() {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    }
+
+    async function postNotice() {
+      const title = document.getElementById('noticeTitle').value;
+      const message = document.getElementById('noticeMessage').value;
+      const fileInput = document.getElementById('audioFile');
+      const language = document.getElementById('audioLanguage').value;
+      const btn = document.getElementById('postBtn');
+      const status = document.getElementById('admin-status');
+
+      if (!title || !message) {
+        status.textContent = "Please fill in the title and message.";
+        status.style.color = "red";
+        return;
+      }
+
+      btn.textContent = "Posting... Please wait";
+      btn.disabled = true;
+
+      const { data: noticeData, error: noticeError } = await supabase
+        .from('notices')
+        .insert([{ title: title, message: message }])
+        .select();
+
+      if (noticeError) {
+        status.textContent = "Error: " + noticeError.message;
+        status.style.color = "red";
+        btn.textContent = "Post Notice";
+        btn.disabled = false;
+        return;
+      }
+
+      const noticeId = noticeData[0].id;
+
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${noticeId}.${fileExt}`;
+        const filePath = `audio/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('school-audio')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          status.textContent = "Notice saved, but audio upload failed: " + uploadError.message;
+          status.style.color = "orange";
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('school-audio')
+            .getPublicUrl(filePath);
+
+          await supabase.from('notice_audio').insert([{
+            notice_id: noticeId,
+            language: language,
+            audio_url: urlData.publicUrl
+          }]);
+        }
+      }
+
+      status.textContent = "Notice posted successfully!";
+      status.style.color = "green";
+      btn.textContent = "Post Notice";
+      btn.disabled = false;
+
+      document.getElementById('noticeTitle').value = '';
+      document.getElementById('noticeMessage').value = '';
+      document.getElementById('audioFile').value = '';
+    }
+  </script>
+</body>
+</html>
